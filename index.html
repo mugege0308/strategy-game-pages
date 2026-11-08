@@ -455,5 +455,105 @@ frameborder="1"
 
     </script>
 
+
+    <script>
+        /* codex touch diagnostics */
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("debug_touch") !== "1") return;
+
+            const canvas = document.getElementById("canvas");
+            if (!canvas) return;
+
+            const state = {
+                browser: { pointerdown: 0, touchstart: 0, mousedown: 0 },
+                pygame: { MOUSEBUTTONDOWN: 0, FINGERDOWN: 0, FINGERUP: 0 },
+                last: "なし",
+                browserPosition: "なし",
+                gamePosition: "なし",
+                pygamePosition: "なし"
+            };
+            const panel = document.createElement("pre");
+            panel.id = "codex-touch-debug";
+            panel.style.cssText = [
+                "position:fixed", "z-index:2147483647", "top:8px", "left:8px",
+                "max-width:calc(100vw - 16px)", "max-height:45vh", "overflow:auto",
+                "margin:0", "padding:8px", "border:1px solid #8fd3ff",
+                "border-radius:4px", "background:rgba(0,0,0,.82)", "color:#dff5ff",
+                "font:12px/1.35 monospace", "white-space:pre-wrap",
+                "pointer-events:none", "user-select:none"
+            ].join(";");
+            document.body.appendChild(panel);
+
+            function canvasMetrics() {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    rect: rect,
+                    css: Math.round(rect.width) + "x" + Math.round(rect.height),
+                    internal: (canvas.width || 0) + "x" + (canvas.height || 0)
+                };
+            }
+
+            function eventPoint(event) {
+                const touch = event.touches && event.touches[0]
+                    ? event.touches[0]
+                    : (event.changedTouches && event.changedTouches[0]);
+                const clientX = event.clientX !== undefined
+                    ? event.clientX : (touch ? touch.clientX : null);
+                const clientY = event.clientY !== undefined
+                    ? event.clientY : (touch ? touch.clientY : null);
+                if (clientX === null || clientY === null) return null;
+                const metrics = canvasMetrics();
+                const x = clientX - metrics.rect.left;
+                const y = clientY - metrics.rect.top;
+                return {
+                    css: Math.round(x) + "," + Math.round(y),
+                    game: Math.round(x * (canvas.width || 1) / Math.max(1, metrics.rect.width))
+                        + "," + Math.round(y * (canvas.height || 1) / Math.max(1, metrics.rect.height))
+                };
+            }
+
+            function render() {
+                const metrics = canvasMetrics();
+                panel.textContent = [
+                    "タッチ診断 (?debug_touch=1)",
+                    "ブラウザ: pointerdown=" + state.browser.pointerdown
+                        + " touchstart=" + state.browser.touchstart
+                        + " mousedown=" + state.browser.mousedown,
+                    "Pygame: MOUSEBUTTONDOWN=" + state.pygame.MOUSEBUTTONDOWN
+                        + " FINGERDOWN=" + state.pygame.FINGERDOWN
+                        + " FINGERUP=" + state.pygame.FINGERUP,
+                    "ブラウザ座標(CSS): " + state.browserPosition,
+                    "ゲーム座標(Canvas内部): " + state.gamePosition,
+                    "Pygame受信座標: " + state.pygamePosition,
+                    "Canvas CSS: " + metrics.css + " / 内部: " + metrics.internal,
+                    "最後のイベント: " + state.last
+                ].join("\n");
+            }
+
+            function recordBrowser(name, event) {
+                state.browser[name] += 1;
+                const point = eventPoint(event);
+                state.browserPosition = point ? point.css : "なし";
+                state.gamePosition = point ? point.game : "なし";
+                state.last = "ブラウザ " + name;
+                render();
+            }
+
+            ["pointerdown", "touchstart", "mousedown"].forEach(function (name) {
+                canvas.addEventListener(name, function (event) {
+                    recordBrowser(name, event);
+                }, { capture: true, passive: true });
+            });
+
+            window.codex_touch_debug_pygame = function (name, x, y) {
+                if (state.pygame[name] !== undefined) state.pygame[name] += 1;
+                state.pygamePosition = (x < 0 || y < 0) ? "なし" : (x + "," + y);
+                state.last = "Pygame " + name;
+                render();
+            };
+            render();
+        })();
+    </script>
 </body>
 </html>
