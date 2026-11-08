@@ -455,20 +455,5 @@ frameborder="1"
 
     </script>
 
-
-    <script>
-        /* codex viewport resize bridge */
-        (function () {
-            function syncPygbagCanvas() {
-                if (typeof window_resize === "function") {
-                    window_resize();
-                }
-            }
-            window.addEventListener("resize", syncPygbagCanvas, {passive: true});
-            window.addEventListener("orientationchange", function () {
-                window.setTimeout(syncPygbagCanvas, 150);
-            }, {passive: true});
-        })();
-    </script>
 </body>
 </html>
